@@ -29,6 +29,7 @@ interface Problem {
   createdAt: FirebaseFirestore.FieldValue;
   isPredefined: boolean; // New field to identify predefined problems
   assignedTechnician?: string | null; // Optional field for the assigned technician
+  solvedAt?: FirebaseFirestore.FieldValue; // Optional field for solved timestamp
 }
 
 // Predefined Problem model
@@ -223,34 +224,37 @@ app.get("/problems/:id", async (req: Request, res: Response) => {
   }
 });
 
+app.get('/health', (req: Request, res: Response) => {
+  res.status(200).json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Update problem status
 app.put("/problems/:id", async (req: Request, res: Response) => {
   try {
-    const { status } = req.body; // Remove technicianId from here
+    const { status } = req.body;
     const problemId = req.params.id;
     const problemRef = db.collection("problems").doc(problemId);
 
-    // First get the current problem data
     const problemDoc = await problemRef.get();
-    
-
     const problemData = problemDoc.data();
     const assignedTechnicianId = problemData?.assignedTechnician;
 
-    // Update problem status
-    await problemRef.update({ status });
+    const updateData: any = { status };
+    if (status === "solved") {
+      updateData.solvedAt = admin.firestore.FieldValue.serverTimestamp();
+    }
 
-    // Use assignedTechnicianId instead of technicianId from request
+    await problemRef.update(updateData);
+
     if (status === "solved" && assignedTechnicianId) {
       try {
-        // Verify technician exists first
         const techRef = db.collection("users").doc(assignedTechnicianId);
         const techDoc = await techRef.get();
-        
-        if (!techDoc.exists) {
-          console.error(`Technician ${assignedTechnicianId} not found`);
-        } else {
+
+        if (techDoc.exists) {
           await axios.put(`http://localhost:3000/users/${assignedTechnicianId}/availability`, {
             isAvailable: true,
             currentProblem: null
@@ -261,7 +265,7 @@ app.put("/problems/:id", async (req: Request, res: Response) => {
       }
     }
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: "Problem status updated successfully",
       technicianUpdated: status === "solved" && !!assignedTechnicianId
     });
@@ -270,6 +274,7 @@ app.put("/problems/:id", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to update problem" });
   }
 });
+
 
 // Delete a problem
 app.delete("/problems/:id", async (req: Request, res: Response) => {
