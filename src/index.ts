@@ -6,7 +6,7 @@ import axios from "axios";
 import cors from "cors";
 
 // Initialize Firebase Admin SDK
-const serviceAccount = require("./test-e1389-firebase-adminsdk-fbsvc-5bb03be7b2.json");
+const serviceAccount = require("/etc/secrets/test-e1389-firebase-adminsdk-fbsvc-5bb03be7b2.json");
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
